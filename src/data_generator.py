@@ -1,9 +1,17 @@
 # Data generator
 
+import chess
 import chess.pgn
+import chess.engine
 import io
 import numpy as np
+import sys
 
+mate_score = 50000
+
+elo_limit = 2750
+
+engine_path = "/home/gabrielj/myapps/stockfish_14.1_linux_x64/stockfish_14.1_linux_x64"
 
 # penser à ajouter un threshold d'elo
 
@@ -26,7 +34,22 @@ def extract_games_from_file(path):
         game_str = ''.join(game)
         list_games_string.append(game_str)
 
-    list_games = [ chess.pgn.read_game(io.StringIO(g)) for g in list_games_string]  
+    list_games = [] # [ chess.pgn.read_game(io.StringIO(g)) for g in list_games_string]  
+    for x in list_games_string:
+        g = chess.pgn.read_game(io.StringIO(x))
+        #print(x)
+        #print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+        #print(g)
+        #print("######################################")
+        if g.headers["Event"]=="?" :
+            sys.exit()
+
+        #print("WhiteElo : ",g.headers["WhiteElo"], "BlackElo:",g.headers["BlackElo"])
+        try:
+            if int(g.headers["WhiteElo"]) >= elo_limit and int(g.headers["BlackElo"]) >= elo_limit:
+                list_games.append(g)
+        except:
+            pass
 
     return list_games
 
@@ -54,35 +77,48 @@ def encode_board(board):
             [board.has_queenside_castling_rights(chess.BLACK)],\
             [board.turn],\
             [board.is_check()],\
-            [board.is_checkmate()],\ # je suis plutôt incertain de la nécessité de ces deux dernières informations, par forcément nécessaire dans l'encoding
-            [board.is_stalemate()],\
             ), axis=0)
     return encoding
 
 
 def extract_all_positions_encodings(game):
+    engine = chess.engine.SimpleEngine.popen_uci(engine_path)
+
     encodings = []
+    scores = []
 
     #do while
     while True:
-        encodings.append(encode_board(game.next().board()))
+        encodings.append(encode_board(game.board()))
 
-        game = game.next()
+        info = engine.analyse(game.board(), chess.engine.Limit(depth=20))
+
+        score = info["score"].white().score(mate_score=mate_score)
+        scores.append(score)
+        
+        #print(game.board())
+        #print("Score = ", score)
 
         if game.is_end() :
             break
 
-    return np.array(encodings)
+        game = game.next()
+
+    engine.quit()
+
+    return np.array(encodings), scores
     
 
-id = 2500
+id = 315
 
-caruana_games = extract_games_from_file("../data/Caruana.pgn")
+caruana_games = extract_games_from_file("../data/raw_data/Caruana.pgn")
 
-codings = extract_all_positions_encodings(caruana_games[id].game())
+print("There are games : ", len(caruana_games))
+
+codings, scores = extract_all_positions_encodings(caruana_games[id].game())
 
 print(caruana_games[id])
 print(codings.shape)
-print(codings[codings.shape[0]-1])
-
+#print(codings[codings.shape[0]-1])
+print(scores)
 
