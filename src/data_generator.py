@@ -6,6 +6,9 @@ import chess.engine
 import io
 import numpy as np
 import sys
+import torch
+from torch.utils.data import Dataset
+from progressbar import progressbar
 
 mate_score = 50000
 
@@ -13,7 +16,7 @@ elo_limit = 2750
 
 engine_path = "/home/gabrielj/myapps/stockfish_14.1_linux_x64/stockfish_14.1_linux_x64"
 
-# penser à ajouter un threshold d'elo
+engine_depth = 1
 
 def extract_games_from_file(path):
     games_file = open(path)
@@ -21,7 +24,8 @@ def extract_games_from_file(path):
     list_games_string = []
     game = []
     j = 0
-    for i in games_string:
+    print("*Parsing file*")
+    for i in progressbar(games_string):
         if i == "\n":
             j += 1
         if j == 2:
@@ -35,13 +39,16 @@ def extract_games_from_file(path):
         list_games_string.append(game_str)
 
     list_games = [] # [ chess.pgn.read_game(io.StringIO(g)) for g in list_games_string]  
-    for x in list_games_string:
+    print("*Elo filtering*")
+    for x in progressbar(list_games_string):
         g = chess.pgn.read_game(io.StringIO(x))
-        #print(x)
-        #print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-        #print(g)
-        #print("######################################")
+
         if g.headers["Event"]=="?" :
+            print(x)
+            print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+            print(g)
+            print("######################################")
+
             sys.exit()
 
         #print("WhiteElo : ",g.headers["WhiteElo"], "BlackElo:",g.headers["BlackElo"])
@@ -80,45 +87,57 @@ def encode_board(board):
             ), axis=0)
     return encoding
 
-
 def extract_all_positions_encodings(game):
     engine = chess.engine.SimpleEngine.popen_uci(engine_path)
 
-    encodings = []
-    scores = []
-
-    #do while
-    while True:
-        encodings.append(encode_board(game.board()))
-
-        info = engine.analyse(game.board(), chess.engine.Limit(depth=20))
-
-        score = info["score"].white().score(mate_score=mate_score)
-        scores.append(score)
-        
-        #print(game.board())
-        #print("Score = ", score)
-
-        if game.is_end() :
-            break
-
-        game = game.next()
+    encodings = [ [encode_board(game.board()),\
+            engine.analyse(game.board(), chess.engine.Limit(depth=engine_depth))["score"].white().score(mate_score=mate_score)\
+            ] for g in game.mainline()]
 
     engine.quit()
 
-    return np.array(encodings), scores
+    return np.array(encodings, dtype = object)
+
+
+
+class GMChessDataset(Dataset):
+    """Grandmaster Chess games dataset"""
+
+    def __init__(self, encodings):
+        """
+        Args:
+            encodings (np.array): Array of shape (n,2) containings
+            positions encodings and stockfish evaluations
+        """
+        self.encodings = encodings
+
+    def __len__(self):
+        return len(self.encodings)
+
+    def __getitem__(self, idx):
+        sample = {'position': self.encodings[idx][0], 'evaluation': self.encodings[idx][0]}
+        return sample
     
 
-id = 315
+data_files = [\
+        "../data/raw_data/Caruana.pgn",\
+        "../data/raw_data/Anand.pgn"\
+        ]
 
-caruana_games = extract_games_from_file("../data/raw_data/Caruana.pgn")
+data = np.empty((0,2))
 
-print("There are games : ", len(caruana_games))
+for p in data_files:
+    print("Handling file : ", p)
+    games = extract_games_from_file(p)
+    print("Games found : ", len(games))
+    print("*Extracting positions from games*")
+    for g in progressbar(games):
+        encodings = extract_all_positions_encodings(g.game())
+        data = np.concatenate((data,encodings))
+    print("\n\n")
 
-codings, scores = extract_all_positions_encodings(caruana_games[id].game())
+print("Positions loaded =", data.shape)
 
-print(caruana_games[id])
-print(codings.shape)
-#print(codings[codings.shape[0]-1])
-print(scores)
+GM_set = GMChessDataset(data)
 
+torch.save(GM_set, "../data/GM_set.pt")
