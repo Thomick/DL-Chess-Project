@@ -10,14 +10,6 @@ import torch
 from torch.utils.data import Dataset
 from progressbar import progressbar
 
-mate_score = 50000
-
-elo_limit = 2750
-
-engine_path = "/home/gabrielj/myapps/stockfish_14.1_linux_x64/stockfish_14.1_linux_x64"
-
-engine_depth = 1
-
 def extract_games_from_file(path):
     games_file = open(path)
     games_string = games_file.readlines()
@@ -119,25 +111,35 @@ class GMChessDataset(Dataset):
         return sample
     
 
-data_files = [\
-        "../data/raw_data/Caruana.pgn",\
-        "../data/raw_data/Anand.pgn"\
-        ]
+if __name__ == "__main__":
 
-data = np.empty((0,2))
+    mate_score = 50000
 
-for p in data_files:
-    print("Handling file : ", p)
-    games = extract_games_from_file(p)
-    print("Games found : ", len(games))
-    print("*Extracting positions from games*")
-    for g in progressbar(games):
-        encodings = extract_all_positions_encodings(g.game())
-        data = np.concatenate((data,encodings))
-    print("\n\n")
+    elo_limit = 2750
 
-print("Positions loaded =", data.shape)
+    engine_path = "/home/gabrielj/myapps/stockfish_14.1_linux_x64/stockfish_14.1_linux_x64"
 
-GM_set = GMChessDataset(data)
+    engine_depth = 1
 
-torch.save(GM_set, "../data/GM_set.pt")
+    data_files = [\
+            "../data/raw_data/Caruana.pgn",\
+            "../data/raw_data/Anand.pgn"\
+            ]
+
+    data = np.empty((0,2))
+
+    for p in data_files:
+        print("Handling file : ", p)
+        games = extract_games_from_file(p)
+        print("Games found : ", len(games))
+        print("*Extracting positions from games*")
+        for g in progressbar(games):
+            encodings = extract_all_positions_encodings(g.game())
+            data = np.concatenate((data,encodings))
+        print("\n\n")
+
+    print("Positions loaded =", data.shape)
+
+    GM_set = GMChessDataset(data)
+
+    torch.save(GM_set, "../data/GM_set.pt")
