@@ -82,13 +82,15 @@ def encode_board(board):
             [board.turn],\
             [board.is_check()],\
             ), axis=0)
+    encoding = encoding*1.
     return encoding
 
 def extract_all_positions_encodings(game):
     engine = chess.engine.SimpleEngine.popen_uci(engine_path)
 
-    encodings = [ [encode_board(game.board()),\
-            engine.analyse(game.board(), chess.engine.Limit(depth=engine_depth))["score"].white().score(mate_score=mate_score)\
+    encodings = [[encode_board(g.board()),
+                  engine.analyse(g.board(), chess.engine.Limit(depth=engine_depth))[
+        "score"].white().score(mate_score=mate_score)
             ] for g in game.mainline()]
 
     engine.quit()
@@ -112,7 +114,7 @@ class GMChessDataset(Dataset):
         return len(self.encodings)
 
     def __getitem__(self, idx):
-        sample = {'position': self.encodings[idx][0], 'evaluation': self.encodings[idx][0]}
+        sample = (self.encodings[idx][0], self.encodings[idx][1])
         return sample
     
 
