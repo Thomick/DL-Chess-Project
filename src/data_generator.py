@@ -6,9 +6,14 @@ import chess.engine
 import io
 import numpy as np
 import sys
+import os
 import torch
 from torch.utils.data import Dataset
 from progressbar import progressbar
+
+stream = os.popen("which stockfish")
+
+engine_path = stream.read().split('\n')[0]
 
 def extract_games_from_file(path):
     games_file = open(path)
@@ -117,13 +122,11 @@ if __name__ == "__main__":
 
     elo_limit = 2750
 
-    engine_path = "/home/gabrielj/myapps/stockfish_14.1_linux_x64/stockfish_14.1_linux_x64"
 
     engine_depth = 1
 
-    data_files = [\
-            "../data/raw_data/Caruana.pgn",\
-            "../data/raw_data/Anand.pgn"\
+    data_files = [
+        "../data/raw_data/Modern.pgn"
             ]
 
     data = np.empty((0,2))
