@@ -10,57 +10,76 @@ import os
 import torch
 from torch.utils.data import Dataset
 from progressbar import progressbar
+import re
+from collections import OrderedDict
+from os.path import isfile, join
 
 stream = os.popen("which stockfish")
 
 engine_path = stream.read().split('\n')[0]
 
-def extract_games_from_file(path):
-    games_file = open(path)
-    games_string = games_file.readlines()
-    list_games_string = []
-    game = []
-    j = 0
-    print("*Parsing file*")
-    for i in progressbar(games_string):
-        if i == "\n":
-            j += 1
-        if j == 2:
-            j = 0
-            game_str = ''.join(game)
-            list_games_string.append(game_str)
-            game = []
-        game.append(i)
-    if game :
-        game_str = ''.join(game)
-        list_games_string.append(game_str)
+engine_depth = 15
+mate_score = 50000
 
-    list_games = [] # [ chess.pgn.read_game(io.StringIO(g)) for g in list_games_string]  
-    print("*Elo filtering*")
-    for x in progressbar(list_games_string):
-        g = chess.pgn.read_game(io.StringIO(x))
+#-------------------------------------------------------------------------------
+# This function is used to iterate two by two over an iterable
+#-------------------------------------------------------------------------------
+def pairwise(iterable):
+    "s -> (s0, s1), (s2, s3), (s4, s5), ..."
+    a = iter(iterable)
+    return zip(a, a)
+
+#-------------------------------------------------------------------------------
+# This function is used to sort games by elo
+#-------------------------------------------------------------------------------
+def elo_sort(g):
+    try:
+        return int(g.headers["WhiteElo"]) + int(g.headers["BlackElo"])
+
+    except:
+        return 0
+
+#-------------------------------------------------------------------------------
+# This function loads games from a pgn file.
+# It will load a maxmimum number of games, set by n_threshold
+n_threshold = 50
+# We take the best games
+#-------------------------------------------------------------------------------
+def extract_games_from_file(path):
+    games_file = open(path, encoding="latin-1")
+
+    print("* Parsing *")
+    blank_line_regex = r"(?:\r?\n){2,}"
+    str_data = re.split(blank_line_regex, games_file.read())
+    list_games = []
+
+    for p1, p2 in progressbar(pairwise(str_data), redirect_stdout=True):
+        pgn = p1+"\n\n"+p2
+
+        g = chess.pgn.read_game(io.StringIO(pgn))
 
         if g.headers["Event"]=="?" :
+            print("DEBUG")
             print(x)
-            print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+            print("\n------------------------------------------\n")
             print(g)
-            print("######################################")
+            print("END DEBUG : FATAL ERROR")
 
             sys.exit()
 
-        #print("WhiteElo : ",g.headers["WhiteElo"], "BlackElo:",g.headers["BlackElo"])
-        try:
-            if int(g.headers["WhiteElo"]) >= elo_limit and int(g.headers["BlackElo"]) >= elo_limit:
-                list_games.append(g)
-        except:
-            pass
+        list_games.append(g)
 
-    return list_games
+    list_games.sort(reverse=True, key=elo_sort)
 
+    number_of_games = len(list_games)
 
-# a voir si on peut ajouter dans l'encoding le nombre de half moves depuis la dernière prise/pawn move, pour émuler la règle des 50 coups
-# nous pouvons faire de même pour un matériel insuffisant que force la draw
-#pourquoi pas ajouter le nombre de pièces attaquées et non défendues
+    to_take = min(n_threshold, number_of_games )
+
+    return list_games[0:to_take], to_take, number_of_games
+
+#-------------------------------------------------------------------------------
+# This function is used to encode a board into a vector
+#-------------------------------------------------------------------------------
 def encode_board(board):
     encoding = np.concatenate(( \
             board.pieces(chess.PAWN, chess.WHITE).tolist(),\
@@ -85,66 +104,100 @@ def encode_board(board):
     encoding = encoding*1.
     return encoding
 
+#-------------------------------------------------------------------------------
+# This function is used to extract all positions encodings from a game
+#-------------------------------------------------------------------------------
 def extract_all_positions_encodings(game):
     engine = chess.engine.SimpleEngine.popen_uci(engine_path)
 
     encodings = [[encode_board(g.board()),
                   engine.analyse(g.board(), chess.engine.Limit(depth=engine_depth))[
-        "score"].white().score(mate_score=mate_score)
+        "score"].white().score(mate_score=mate_score)/100.0
             ] for g in game.mainline()]
 
     engine.quit()
 
     return np.array(encodings, dtype = object)
 
+#-------------------------------------------------------------------------------
+# This function is used to hash an encoding
+#-------------------------------------------------------------------------------
+def hash_encoding(encoding):
+    return encoding.tobytes()
 
 
-class GMChessDataset(Dataset):
+#-------------------------------------------------------------------------------
+# This class defines a dataset of positions encodings
+#-------------------------------------------------------------------------------
+class ChessDataset(Dataset):
     """Grandmaster Chess games dataset"""
 
-    def __init__(self, encodings):
+    def __init__(self, dataset_dir):
         """
         Args:
-            encodings (np.array): Array of shape (n,2) containings
-            positions encodings and stockfish evaluations
+            dataset_dir (strin): path to directory containing pgn files
         """
-        self.encodings = encodings
+        self.encodings = OrderedDict()
+
+        #for logging
+        log = open("../log/"+ os.path.basename(dataset_dir) +".log", "w")
+
+        print("[DATASET] Loading {}".format(dataset_dir))
+        log.write("[DATASET] Loading {}\n".format(dataset_dir))
+
+        #name
+        self.name = os.path.basename(dataset_dir)
+
+        # Iterating over all files in the directory
+        total_positions = 0
+        files = [join(dataset_dir,f) for f in os.listdir(dataset_dir) if isfile(join(dataset_dir, f))]
+        for file in progressbar(files , redirect_stdout=True):
+            n_positions = 0
+            print("[HANDLING FILE] : {}".format(file))
+            log.write("[HANDLING FILE] : {}\n".format(file))
+            games, n_loaded, n_total = extract_games_from_file(file)
+            print("[REPORT] Loaded {} games out of {}".format(n_loaded, n_total))
+            log.write("[REPORT] Loaded {} games out of {}\n".format(n_loaded, n_total))
+            for g in progressbar(games, redirect_stdout=True):
+                encodings = extract_all_positions_encodings(g)
+                n_positions += encodings.shape[0]
+                for e in progressbar(encodings, redirect_stdout=True):
+                    self.encodings[hash_encoding(e)] = e
+            print("[LOADED] Loaded {} positions from {}".format(n_positions, file))
+            log.write("[LOADED] Loaded {} positions from {}\n".format(n_positions, file))
+
+            total_positions += n_positions
+
+        print("[LOADED] Loaded a total of {} positions".format(total_positions))
+        log.write("[TOTAL LOADED] Loaded a total of {} positions\n".format(total_positions))
+
+        print("[IN HASHMAP] {} positions were added to the hashmap of encodings".format(len(self.encodings)))
+        log.write("[IN HASHMAP] {} positions were added to the hashmap of encodings\n".format(len(self.encodings)))
+
+        log.close()
+
 
     def __len__(self):
         return len(self.encodings)
 
     def __getitem__(self, idx):
-        sample = (self.encodings[idx][0], self.encodings[idx][1])
+        sample = (self.encodings.items()[idx][0], self.encodings.items()[idx][1])
         return sample
-    
+
+    def save(self):
+        torch.save(self, "../data/"+self.name+".pt")
+
+    def merge(self,Other):
+        self.encodings.update(Other.encodings)
 
 if __name__ == "__main__":
 
-    mate_score = 50000
+    if len(sys.argv) < 2:
+        print("Please provide datasets")
+        sys.exit()
 
-    elo_limit = 2750
+    datasets = sys.argv[1:]
 
-
-    engine_depth = 1
-
-    data_files = [
-        "../data/raw_data/Modern.pgn"
-            ]
-
-    data = np.empty((0,2))
-
-    for p in data_files:
-        print("Handling file : ", p)
-        games = extract_games_from_file(p)
-        print("Games found : ", len(games))
-        print("*Extracting positions from games*")
-        for g in progressbar(games):
-            encodings = extract_all_positions_encodings(g.game())
-            data = np.concatenate((data,encodings))
-        print("\n\n")
-
-    print("Positions loaded =", data.shape)
-
-    GM_set = GMChessDataset(data)
-
-    torch.save(GM_set, "../data/GM_set.pt")
+    for dataset in progressbar(datasets, redirect_stdout=True):
+        set = ChessDataset(dataset)
+        set.save()
