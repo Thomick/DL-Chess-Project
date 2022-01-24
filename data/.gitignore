@@ -1,4 +1,4 @@
 # Ignore the data files
-*
-!./raw_data
+./*
+!./raw_data/*
 !.gitignore
