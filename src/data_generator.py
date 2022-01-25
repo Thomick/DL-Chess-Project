@@ -21,6 +21,16 @@ engine_path = stream.read().split('\n')[0]
 engine_depth = 15
 mate_score = 50000
 
+
+#-------------------------------------------------------------------------------
+# This class defines colors for the terminal output
+#-------------------------------------------------------------------------------
+class bcolors:
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+
+
 #-------------------------------------------------------------------------------
 # This function is used to iterate two by two over an iterable
 #-------------------------------------------------------------------------------
@@ -45,7 +55,7 @@ def elo_sort(g):
 n_threshold = 50
 # We take the best games
 #-------------------------------------------------------------------------------
-def extract_games_from_file(path):
+def extract_games_from_file(path, log_f):
     games_file = open(path, encoding="latin-1")
 
     print("* Parsing *")
@@ -59,13 +69,15 @@ def extract_games_from_file(path):
         g = chess.pgn.read_game(io.StringIO(pgn))
 
         if g.headers["Event"]=="?" :
-            print("DEBUG")
-            print(x)
-            print("\n------------------------------------------\n")
-            print(g)
-            print("END DEBUG : FATAL ERROR")
+            log_f.write("[DEBUG] PARSING ERROR IN {}\n".format(path))
+            log_f.write(pgn)
+            log_f.write("\n------------------------------------------\n")
+            print(g, file=log_f)
+            log_f.write("\n")
+            log_f.write("[END DEBUG] PARSING ERROR\n")
+            print(bcolors.FAIL + bcolors.BOLD + "[FATAL PARSING ERROR]" + bcolors.ENDC + " Check log to see details")
 
-            sys.exit()
+            break
 
         list_games.append(g)
 
@@ -155,7 +167,7 @@ class ChessDataset(Dataset):
             n_positions = 0
             print("[HANDLING FILE] : {}".format(file))
             log.write("[HANDLING FILE] : {}\n".format(file))
-            games, n_loaded, n_total = extract_games_from_file(file)
+            games, n_loaded, n_total = extract_games_from_file(file,log)
             print("[REPORT] Loaded {} games out of {}".format(n_loaded, n_total))
             log.write("[REPORT] Loaded {} games out of {}\n".format(n_loaded, n_total))
             for g in progressbar(games, redirect_stdout=True):
