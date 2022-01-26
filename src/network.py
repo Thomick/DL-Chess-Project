@@ -3,6 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from data_generator import ChessDataset
 import matplotlib.pyplot as plt
+import sys
+from torch.utils.data import Dataset
+from progressbar import progressbar
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -43,7 +46,8 @@ def train_model(model, dataloader, size, epochs=1):
 
     for epoch in range(epochs):
         running_loss = 0.0
-        for inputs, target in dataloader:
+        print(f"Starting epoch {epoch} ...")
+        for inputs, target in progressbar(dataloader):
             inputs = inputs.to(device)
             targets = torch.unsqueeze(target.to(device).float(), 1)
             outputs = model(inputs.float())
@@ -52,8 +56,8 @@ def train_model(model, dataloader, size, epochs=1):
             loss.backward()
             optimizer.step()
             # statistics
-            running_loss += loss.data.item()
-        epoch_loss = running_loss/size
+            running_loss += loss.data.item()/size
+        epoch_loss = running_loss
         print(f'Epoch {epoch} Loss: {epoch_loss}')
         losses.append(epoch_loss)
         if epoch % 10 == 0:
@@ -61,12 +65,18 @@ def train_model(model, dataloader, size, epochs=1):
     return losses
 
 
-def merge_datasets(datasets):
-    finalds = datasets[0]
-    for ds in datasets[1:]:
-        finalds.merge(ds)
-    return finalds
+class FixedChessDataset(Dataset):
+    def __init__(self, datasets):
+        self.encodings = []
+        for ds in datasets:
+            self.encodings += [l[1] for l in ds.encodings.items()]
 
+    def __len__(self):
+        return len(self.encodings)
+
+    def __getitem__(self, idx):
+        sample = (self.encodings[idx][0], self.encodings[idx][1])
+        return sample
 
 if __name__ == '__main__':
     batch_size = 256
@@ -80,13 +90,13 @@ if __name__ == '__main__':
     datasets = []
     for ds_path in datasets_path:
         datasets.append(torch.load(ds_path))
-    final_dataset = merge_datasets(datasets)
+    final_dataset = FixedChessDataset(datasets)
 
     print("Size of the dataset : ", len(final_dataset))
     model = Net()
     dataloader = torch.utils.data.DataLoader(
         final_dataset, batch_size=batch_size, shuffle=True)
-    losses = train_model(model, dataloader, len(dataset), epochs=1000)
+    losses = train_model(model, dataloader, len(final_dataset), epochs=1000)
     save(model, losses, "final")
     plt.plot(losses)
     plt.show()
