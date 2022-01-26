@@ -84,7 +84,7 @@ def train_model(model, train_loader, val_loader, train_size, val_size, epochs=1)
             loss.backward()
             optimizer.step()
             # statistics
-            running_loss += loss.data.item()/size
+            running_loss += loss.data.item()/train_size
         epoch_loss = running_loss
         print("Validation")
         val_loss = eval_model(model, val_loader, val_size)
@@ -152,7 +152,7 @@ if __name__ == '__main__':
     train_set, val_set = torch.utils.data.random_split(
         cnn_dataset, [trainset_size, valset_size])
 
-    print("Size of the dataset : ", len(cnn_dataset))
+    print("Size of the training dataset : ", len(train_set))
     model = CNN_Net().to(device)
 
     train_loader = torch.utils.data.DataLoader(
