@@ -131,6 +131,7 @@ if __name__ == '__main__':
 
     print("Size of the dataset : ", len(cnn_dataset))
     model = CNN_Net()
+    model = model.to(device)
     dataloader = torch.utils.data.DataLoader(
         cnn_dataset, batch_size=batch_size, shuffle=True)
 
