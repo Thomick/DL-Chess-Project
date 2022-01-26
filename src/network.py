@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from data_generator import GMChessDataset
+from data_generator import ChessDataset
 import matplotlib.pyplot as plt
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -39,6 +39,7 @@ def train_model(model, dataloader, size, epochs=1):
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
     losses = []
+    print(f"Training for {epochs} epochs ...")
 
     for epoch in range(epochs):
         running_loss = 0.0
@@ -85,7 +86,7 @@ if __name__ == '__main__':
     model = Net()
     dataloader = torch.utils.data.DataLoader(
         final_dataset, batch_size=batch_size, shuffle=True)
-    losses = train_model(model, dataloader, len(dataset), epochs=100)
+    losses = train_model(model, dataloader, len(dataset), epochs=1000)
     save(model, losses, "final")
     plt.plot(losses)
     plt.show()
