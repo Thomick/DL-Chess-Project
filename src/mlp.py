@@ -38,11 +38,10 @@ def save(model, losses, val_losses, identifier):
     print("Progress saved !")
 
 
-def eval_model(model, val_loader):
+def eval_model(model, val_loader, size):
     print("Evaluation ...")
     model.eval()
     criterion = nn.MSELoss()
-    size = len(val_loader)
     running_loss = 0.0
     for inputs, target in progressbar(val_loader):
         inputs = inputs.to(device)
@@ -53,13 +52,12 @@ def eval_model(model, val_loader):
     return running_loss/size
 
 
-def train_model(model, train_loader, val_loader, epochs=1):
+def train_model(model, train_loader, val_loader, train_size, val_size, epochs=1):
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
     losses = []
     val_losses = []
-    size = len(train_loader)
     print(f"Training for {epochs} epochs ...")
 
     for epoch in range(epochs):
@@ -76,9 +74,9 @@ def train_model(model, train_loader, val_loader, epochs=1):
             optimizer.step()
             # statistics
             running_loss += loss.data.item()
-        epoch_loss = running_loss/size
+        epoch_loss = running_loss/train_size
         print("Validation")
-        val_loss = eval_model(model, val_loader)
+        val_loss = eval_model(model, val_loader, val_size)
 
         print(f'Epoch {epoch} Loss: {epoch_loss} Validation: {val_loss}')
         losses.append(epoch_loss)
@@ -117,8 +115,9 @@ if __name__ == '__main__':
     final_dataset = FixedChessDataset(datasets)
 
     trainset_size = int(len(final_dataset)*0.8)
+    valset_size = len(final_dataset)-trainset_size
     train_set, val_set = torch.utils.data.random_split(
-        final_dataset, [trainset_size, len(final_dataset)-trainset_size])
+        final_dataset, [trainset_size, valset_size])
 
     print("Size of the dataset : ", len(final_dataset))
     model = Net().to(device)
@@ -127,5 +126,5 @@ if __name__ == '__main__':
     val_loader = torch.utils.data.DataLoader(
         val_set, batch_size=batch_size, shuffle=True)
     losses, val_losses = train_model(
-        model, train_loader, val_loader, epochs=1000)
+        model, train_loader, val_loader, trainset_size, valset_size, epochs=1000)
     save(model, losses, "final")
