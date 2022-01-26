@@ -42,22 +42,37 @@ class CNN_Net(nn.Module):
 
 
 def save(model, losses, identifier):
+    np.savetxt(f"../saves/cnn/eval_loss{identifier}.txt", np.array(val_losses))
     np.savetxt(f"../saves/cnn/loss{identifier}.txt", np.array(losses))
     torch.save(model.state_dict(), f"../saves/cnn/cnn{identifier}.pt")
+    print("Progress saved !")
 
+def eval_model(model, val_loader, size):
+    print("Evaluation ...")
+    model.eval()
+    criterion = nn.MSELoss()
+    running_loss = 0.0
+    for inputs, target in progressbar(val_loader):
+        inputs = inputs.to(device)
+        targets = torch.unsqueeze(target.to(device).float(), 1)
+        outputs = model(inputs.float())
+        loss = criterion(outputs, targets)
+        running_loss += loss.data.item()
+    return running_loss/size
 
-def train_model(model, dataloader, size, epochs=1):
+def train_model(model, train_loader, val_loader, train_size, val_size, epochs=1):
     model.train()
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
     losses = []
+    val_losses = []
     print(f"Training for {epochs} epochs ...")
 
     for epoch in range(epochs):
         running_loss = 0.0
         print(f"Starting epoch {epoch} ...")
-        for inputs, target in progressbar(dataloader):
+        for inputs, target in progressbar(train_loader):
             boards = inputs[0]
             metas = inputs[1]
             boards = boards.to(device)
@@ -71,7 +86,10 @@ def train_model(model, dataloader, size, epochs=1):
             # statistics
             running_loss += loss.data.item()/size
         epoch_loss = running_loss
-        print(f'Epoch {epoch} Loss: {epoch_loss}')
+        print("Validation")
+        val_loss = eval_model(model, val_loader, val_size)
+
+        print(f'Epoch {epoch} Loss: {epoch_loss} Validation: {val_loss}')
         losses.append(epoch_loss)
         if epoch % 10 == 0:
             save(model, losses, epoch)
@@ -129,12 +147,18 @@ if __name__ == '__main__':
 
     cnn_dataset = CNNChessDataset(final_dataset)
 
+    trainset_size = int(len(cnn_dataset)*0.8)
+    valset_size = len(cnn_dataset)-trainset_size
+    train_set, val_set = torch.utils.data.random_split(
+        cnn_dataset, [trainset_size, valset_size])
+
     print("Size of the dataset : ", len(cnn_dataset))
     model = CNN_Net().to(device)
-    dataloader = torch.utils.data.DataLoader(
-        cnn_dataset, batch_size=batch_size, shuffle=True)
 
-    losses = train_model(model, dataloader, len(final_dataset), epochs=1000)
+    train_loader = torch.utils.data.DataLoader(
+        train_set, batch_size=batch_size, shuffle=True)
+    val_loader = torch.utils.data.DataLoader(
+        val_set, batch_size=batch_size, shuffle=True)
+    losses, val_losses = train_model(
+        model, train_loader, val_loader, trainset_size, valset_size, epochs=1000)
     save(model, losses, "final")
-    plt.plot(losses)
-    plt.show()
