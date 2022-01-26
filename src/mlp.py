@@ -33,10 +33,12 @@ class Net(nn.Module):
         return self.layers(x)
 
 
-def save(model, losses, val_losses, identifier):
-    np.savetxt(f"../saves/mlp/eval_loss{identifier}.txt", np.array(val_losses))
-    np.savetxt(f"../saves/mlp/loss{identifier}.txt", np.array(losses))
-    torch.save(model.state_dict(), f"../saves/mlp/sd{identifier}.pt")
+def save(model, losses, val_losses, identifier, additional_path=""):
+    fullpath = f"../saves/{additional_path}"
+    os.makedirs(fullpath, exist_ok=False)
+    np.savetxt(f"{fullpath}eval_loss{identifier}.txt", np.array(val_losses))
+    np.savetxt(f"..{fullpath}loss{identifier}.txt", np.array(losses))
+    torch.save(model.state_dict(), f"..{fullpath}sd{identifier}.pt")
     print("Progress saved !")
 
 
@@ -54,11 +56,11 @@ def eval_model(model, val_loader, size):
     return running_loss/size
 
 
-def train_model(model, train_loader, val_loader, train_size, val_size, epochs=1):
+def train_model(model, train_loader, val_loader, train_size, val_size, epochs=1, lr=0.001, wd=0.001):
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(
-        model.parameters(), lr=0.001, weight_decay=1e-5)
-
+        model.parameters(), lr=lr, weight_decay=wd)
+    additional_path = f"mlp/lr{int(lr*10000)}/wd{int(wd*10000)}/"
     losses = []
     val_losses = []
     print(f"Training for {epochs} epochs ...")
@@ -85,7 +87,8 @@ def train_model(model, train_loader, val_loader, train_size, val_size, epochs=1)
         losses.append(epoch_loss)
         val_losses.append(val_loss)
         if epoch % 10 == 0:
-            save(model, losses, val_losses, epoch)
+            save(model, losses, val_losses, epoch,
+                 additional_path=additional_path)
     return losses
 
 
@@ -103,8 +106,10 @@ class FixedChessDataset(Dataset):
         return sample
 
 
-if __name__ == '__main__':
+def train_once():
     batch_size = 256
+    lr = 0.001
+    wd = 0.001
 
     if len(sys.argv) < 2:
         print("Please provide datasets")
@@ -129,5 +134,55 @@ if __name__ == '__main__':
     val_loader = torch.utils.data.DataLoader(
         val_set, batch_size=batch_size, shuffle=True)
     losses, val_losses = train_model(
-        model, train_loader, val_loader, trainset_size, valset_size, epochs=1000)
-    save(model, losses, "final")
+        model, train_loader, val_loader, trainset_size, valset_size, epochs=1000, lr=lr, wd=wd)
+    save(model, losses, "final",
+         additional_path=f"mlp/lr{int(lr*10000)}/wd{int(wd*10000)}/")
+
+
+def batch_train():
+    batch_size = 256
+
+    if len(sys.argv) < 2:
+        print("Please provide datasets")
+        sys.exit()
+
+    datasets_path = sys.argv[1:]
+
+    datasets = []
+    for ds_path in datasets_path:
+        datasets.append(torch.load(ds_path))
+    final_dataset = FixedChessDataset(datasets)
+
+    trainset_size = int(len(final_dataset)*0.8)
+    valset_size = len(final_dataset)-trainset_size
+    train_set, val_set = torch.utils.data.random_split(
+        final_dataset, [trainset_size, valset_size])
+
+    train_loader = torch.utils.data.DataLoader(
+        train_set, batch_size=batch_size, shuffle=True)
+    val_loader = torch.utils.data.DataLoader(
+        val_set, batch_size=batch_size, shuffle=True)
+
+    print("Size of the dataset : ", len(final_dataset))
+    wd = 0.001
+    for lr in [0.01, 0.003, 0.001]:
+        print(f"Train a model with lr={lr} and wd={wd}")
+        model = Net().to(device)
+        losses, val_losses = train_model(
+            model, train_loader, val_loader, trainset_size, valset_size, epochs=1000, lr=lr, wd=wd)
+        save(model, losses, "final",
+             additional_path=f"mlp/lr{int(lr*10000)}/wd{int(wd*10000)}/")
+
+    lr = 0.001
+    for wd in [0.1, 0.01, 0.001, 0.0001]:
+        print(f"Train a model with lr={lr} and wd={wd}")
+        model = Net().to(device)
+        losses, val_losses = train_model(
+            model, train_loader, val_loader, trainset_size, valset_size, epochs=1000, lr=lr, wd=wd)
+        save(model, losses, "final",
+             additional_path=f"mlp/lr{int(lr*10000)}/wd{int(wd*10000)}/")
+
+
+if __name__ == '__main__':
+    #train_once()
+    batch_train()
