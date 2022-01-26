@@ -38,10 +38,11 @@ def save(model, losses, val_losses, identifier):
     print("Progress saved !")
 
 
-def eval_model(model, val_loader, size):
+def eval_model(model, val_loader):
     print("Evaluation ...")
     model.eval()
     criterion = nn.MSELoss()
+    size = len(val_loader)
     running_loss = 0.0
     for inputs, target in progressbar(val_loader):
         inputs = inputs.to(device)
@@ -52,12 +53,13 @@ def eval_model(model, val_loader, size):
     return running_loss/size
 
 
-def train_model(model, train_loader, val_loader, size, epochs=1):
+def train_model(model, train_loader, val_loader, epochs=1):
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
     losses = []
     val_losses = []
+    size = len(train_loader)
     print(f"Training for {epochs} epochs ...")
 
     for epoch in range(epochs):
@@ -125,5 +127,5 @@ if __name__ == '__main__':
     val_loader = torch.utils.data.DataLoader(
         val_set, batch_size=batch_size, shuffle=True)
     losses, val_losses = train_model(
-        model, train_loader, val_loader, len(final_dataset), epochs=1000)
+        model, train_loader, val_loader, epochs=1000)
     save(model, losses, "final")
