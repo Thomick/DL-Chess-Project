@@ -54,7 +54,8 @@ def eval_model(model, val_loader, size):
 
 def train_model(model, train_loader, val_loader, train_size, val_size, epochs=1):
     criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(
+        model.parameters(), lr=0.001, weight_decay=1e-5)
 
     losses = []
     val_losses = []
