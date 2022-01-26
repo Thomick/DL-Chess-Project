@@ -78,7 +78,7 @@ def train_model(model, train_loader, val_loader, epochs=1):
             running_loss += loss.data.item()
         epoch_loss = running_loss/size
         print("Validation")
-        val_loss = eval_model(model, val_loader, size)
+        val_loss = eval_model(model, val_loader)
 
         print(f'Epoch {epoch} Loss: {epoch_loss} Validation: {val_loss}')
         losses.append(epoch_loss)
