@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import sys
 from torch.utils.data import Dataset
 from progressbar import progressbar
+import numpy as np
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -32,8 +33,9 @@ class Net(nn.Module):
 
 
 def save(model, losses, identifier):
-    np.savetxt(f"../saves/loss{identifier}", np.array(losses))
-    torch.save(model.state_dict(), f"../saves/sd{identifier}")
+    np.savetxt(f"../saves/loss{identifier}.txt", np.array(losses))
+    torch.save(model.state_dict(), f"../saves/sd{identifier}.pt")
+    print("Progress saved !")
 
 
 def train_model(model, dataloader, size, epochs=1):
@@ -93,7 +95,7 @@ if __name__ == '__main__':
     final_dataset = FixedChessDataset(datasets)
 
     print("Size of the dataset : ", len(final_dataset))
-    model = Net()
+    model = Net().to(device)
     dataloader = torch.utils.data.DataLoader(
         final_dataset, batch_size=batch_size, shuffle=True)
     losses = train_model(model, dataloader, len(final_dataset), epochs=1000)

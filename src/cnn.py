@@ -42,8 +42,8 @@ class CNN_Net(nn.Module):
 
 
 def save(model, losses, identifier):
-    np.savetxt(f"../saves/cnn/loss{identifier}", np.array(losses))
-    torch.save(model.state_dict(), f"../saves/cnn/cnn{identifier}")
+    np.savetxt(f"../saves/cnn/loss{identifier}.txt", np.array(losses))
+    torch.save(model.state_dict(), f"../saves/cnn/cnn{identifier}.pt")
 
 
 def train_model(model, dataloader, size, epochs=1):
@@ -130,8 +130,7 @@ if __name__ == '__main__':
     cnn_dataset = CNNChessDataset(final_dataset)
 
     print("Size of the dataset : ", len(cnn_dataset))
-    model = CNN_Net()
-    model = model.to(device)
+    model = CNN_Net().to(device)
     dataloader = torch.utils.data.DataLoader(
         cnn_dataset, batch_size=batch_size, shuffle=True)
 
