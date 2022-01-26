@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+
 class Net(nn.Module):
 
     def __init__(self):
@@ -25,6 +26,11 @@ class Net(nn.Module):
 
     def forward(self, x):
         return self.layers(x)
+
+
+def save(model, losses, identifier):
+    np.savetxt(f"../saves/loss{identifier}", np.array(losses))
+    torch.save(model.state_dict(), f"../saves/sd{identifier}")
 
 
 def train_model(model, dataloader, size, epochs=1):
@@ -50,8 +56,7 @@ def train_model(model, dataloader, size, epochs=1):
         print(f'Epoch {epoch} Loss: {epoch_loss}')
         losses.append(epoch_loss)
         if epoch % 10 == 0:
-            np.savetxt(f"../saves/loss{epoch}", np.array(losses))
-            torch.save(model.state_dict(), f"../saves/sd{epoch}")
+            save(model, losses, epoch)
     return losses
 
 
@@ -60,6 +65,7 @@ def merge_datasets(datasets):
     for ds in datasets[1:]:
         finalds.merge(ds)
     return finalds
+
 
 if __name__ == '__main__':
     batch_size = 256
@@ -75,9 +81,11 @@ if __name__ == '__main__':
         datasets.append(torch.load(ds_path))
     final_dataset = merge_datasets(datasets)
 
+    print("Size of the dataset : ", len(final_dataset))
     model = Net()
     dataloader = torch.utils.data.DataLoader(
         final_dataset, batch_size=batch_size, shuffle=True)
     losses = train_model(model, dataloader, len(dataset), epochs=100)
+    save(model, losses, "final")
     plt.plot(losses)
     plt.show()
