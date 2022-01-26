@@ -6,6 +6,7 @@ import sys
 from torch.utils.data import Dataset
 from progressbar import progressbar
 import numpy as np
+import os
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
