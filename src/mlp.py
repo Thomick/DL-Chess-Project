@@ -42,7 +42,8 @@ def eval_model(model, val_loader, size):
     print("Evaluation ...")
     model.eval()
     criterion = nn.MSELoss()
-    for inputs, target in progressbar(train_loader):
+    running_loss = 0.0
+    for inputs, target in progressbar(val_loader):
         inputs = inputs.to(device)
         targets = torch.unsqueeze(target.to(device).float(), 1)
         outputs = model(inputs.float())
