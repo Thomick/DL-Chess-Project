@@ -42,7 +42,7 @@ class TorchEngine(ChessEngine):
             board.pop()
 
         encodings = torch.tensor(encodings,device = self.device)
-        scores = self.model(encodings) * -1
+        scores = self.model(encodings) * color
         chosen_move = moves[torch.argmax(scores)]
         return chosen_move
 
@@ -61,16 +61,32 @@ class CNN_Engine(ChessEngine):
         encodings = []
         for m in moves:
             board.push(m)
-            encodings.append( mlp_encoding_to_cnn_encoding_board_only(encode_board(board)))
+            translated = mlp_encoding_to_cnn_encoding_board_only(encode_board(board))
+            encodings.append(translated )
             board.pop()
-
+        
         encodings = np.array(encodings)
-        boards = encodings[0]
-        metas = encodings[0]
+        n = encodings.shape[0]
+        boards = np.concatenate(encodings[:,0],axis=0).reshape(n,12,8,8)
+        metas = np.concatenate(encodings[:,1],axis=0).reshape(n,6)
         boards = torch.tensor(boards,device = self.device)
         metas = torch.tensor(metas,device = self.device)
-        scores = self.model((boards.float(),metas.float())) * -1
-        chosen_move = moves[torch.argmax(scores)]
+        scores = self.model((boards.float(),metas.float())) * color
+
+        scores = scores.cpu().detach().numpy().flatten()
+        n = max(int(0.25*scores.shape[0]), 1)
+        #print(scores)
+        #print(scores.shape)
+        possible_moves = np.argpartition(scores, -n)[-n:]
+        #print(possible_moves)
+        #print(possible_moves.shape)
+        chosen_move = moves[0]
+        if possible_moves.shape[0] != 1:
+            weights = scores[possible_moves]
+            weights = weights - min(weights)
+            weights = weights/np.sum(weights)
+            move_id = np.random.choice(possible_moves.squeeze(), p=weights)
+            chosen_move = moves[move_id]
         return chosen_move
 
     def play(self, board, color):
@@ -130,17 +146,15 @@ def play_game(engine1, engine2, out, max_length = 500):
         if board.is_game_over():
             break
     outcome = board.outcome()
-    print(board_to_game(board))
-
     print(chess.pgn.Game().from_board(board))
     if outcome == None:
         print("Stopping the game after", max_length, "steps")
-        return 1/2, 1/2
+        return 1.0/2.0, 1.0/2.0
     print(outcome.termination)
 
     scores = outcome.result()
     if scores == "1/2-1/2":
-        return 1/2, 1/2
+        return 1.0/2.0, 1.0/2.0
     scores = scores.split("-")
     return int(scores[0]), int(scores[1])
 
@@ -165,10 +179,13 @@ def compare_engines(n,engine1,engine2, display):
 
 if __name__ == "__main__":
     random_engine = ChessEngine()
-    stock = StockfishEngine(time=2, depth=12)
+    stock = StockfishEngine(time=2, depth=1)
     stock2 = StockfishEngine(time=2, depth=11)
-    cnn = CNN_Engine(CNN_Net().to(device), device)
-    compare_engines(10,stock, stock2, True)
+    cnn = CNN_Net()
+    cnn.load_state_dict(torch.load("../saves/cnn/cnnfinal.pt"))
+    cnn.eval()
+    cnn_engine = CNN_Engine(cnn.to(device), device)
+    compare_engines(100,stock, cnn_engine, True)
     stock.quit()
     stock2.quit()
     random_engine.quit()
