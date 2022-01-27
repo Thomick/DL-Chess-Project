@@ -95,7 +95,7 @@ def train_model(model, train_loader, val_loader, train_size, val_size, epochs=1)
         print(f'Epoch {epoch} Loss: {epoch_loss} Validation: {val_loss}')
         losses.append(epoch_loss)
         if epoch % 50 == 0:
-            save(model, losses, epoch)
+            save(model, losses, val_losses, epoch)
     return losses, val_losses
 
 
@@ -164,4 +164,4 @@ if __name__ == '__main__':
         val_set, batch_size=batch_size, shuffle=True)
     losses, val_losses = train_model(
         model, train_loader, val_loader, trainset_size, valset_size, epochs=1000)
-    save(model, losses, "final")
+    save(model, losses, val_losses, "final")
