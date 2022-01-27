@@ -53,9 +53,12 @@ def eval_model(model, val_loader, size):
     criterion = nn.MSELoss()
     running_loss = 0.0
     for inputs, target in progressbar(val_loader):
-        inputs = inputs.to(device)
+        boards = inputs[0]
+        metas = inputs[1]
+        boards = boards.to(device)
+        metas = metas.to(device)
         targets = torch.unsqueeze(target.to(device).float(), 1)
-        outputs = model(inputs.float())
+        outputs = model((boards.float(),metas.float()))
         loss = criterion(outputs, targets)
         running_loss += loss.data.item()
     return running_loss/size
