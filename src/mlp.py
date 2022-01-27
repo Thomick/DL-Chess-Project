@@ -87,7 +87,7 @@ def train_model(model, train_loader, val_loader, train_size, val_size, epochs=1,
         print(f'Epoch {epoch} Loss: {epoch_loss} Validation: {val_loss}')
         losses.append(epoch_loss)
         val_losses.append(val_loss)
-        if epoch % 10 == 0:
+        if epoch % 50 == 0:
             save(model, losses, val_losses, epoch,
                  additional_path=additional_path)
     return losses
@@ -166,7 +166,7 @@ def batch_train():
 
     print("Size of the dataset : ", len(final_dataset))
     wd = 0.001
-    for lr in [0.01, 0.003, 0.001]:
+    for lr in [ 0.003, 0.001]:
         print(f"Train a model with lr={lr} and wd={wd}")
         model = Net().to(device)
         losses, val_losses = train_model(
