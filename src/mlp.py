@@ -90,7 +90,7 @@ def train_model(model, train_loader, val_loader, train_size, val_size, epochs=1,
         if epoch % 50 == 0:
             save(model, losses, val_losses, epoch,
                  additional_path=additional_path)
-    return losses
+    return losses, val_losses
 
 
 class FixedChessDataset(Dataset):
