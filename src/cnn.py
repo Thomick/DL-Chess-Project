@@ -17,10 +17,10 @@ class CNN_Net(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.conv1 = nn.Conv2d(12,80,5)
-        self.conv2 = nn.Conv2d(80,160,3)
-        self.fc1 = nn.Linear(646,2048)
-        self.fc2 = nn.Linear(2048,1)
+        self.conv1 = nn.Conv2d(12,20,5)
+        self.conv2 = nn.Conv2d(20,50,3)
+        self.fc1 = nn.Linear(206,512)
+        self.fc2 = nn.Linear(512,1)
 
     def forward(self, x):
         board, meta = x
@@ -66,7 +66,7 @@ def eval_model(model, val_loader, size):
 def train_model(model, train_loader, val_loader, train_size, val_size, epochs=1):
     model.train()
     criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
 
     losses = []
     val_losses = []
@@ -97,6 +97,26 @@ def train_model(model, train_loader, val_loader, train_size, val_size, epochs=1)
         if epoch % 50 == 0:
             save(model, losses, val_losses, epoch)
     return losses, val_losses
+
+def mlp_encoding_to_cnn_encoding_board_only(encoding):
+    wpawn = encoding[0:64].reshape((8,8))
+    wbishop = encoding[64:128].reshape((8,8))
+    wknight = encoding[128:192].reshape((8,8))
+    wrook = encoding[192:256].reshape((8,8))
+    wqueen = encoding[256:320].reshape((8,8))
+    wking = encoding[320:384].reshape((8,8))
+    bpawn = encoding[384:448].reshape((8,8))
+    bbishop = encoding[448:512].reshape((8,8))
+    bknight = encoding[512:576].reshape((8,8))
+    brook = encoding[576:640].reshape((8,8))
+    bqueen = encoding[640:704].reshape((8,8))
+    bking = encoding[704:768].reshape((8,8))
+    meta = np.array(encoding[768:])
+
+    board = np.array([wpawn, wbishop,wknight,wrook, wqueen, wking,\
+            bpawn, bbishop,bknight,brook, bqueen, bking])
+
+    return np.array([board,meta], dtype=object) 
 
 
 def mlp_encoding_to_cnn_encoding(encoding):
