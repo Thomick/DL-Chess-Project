@@ -47,7 +47,7 @@ class TorchEngine(ChessEngine):
             board.pop()
 
         encodings = torch.tensor(encodings,device = self.device)
-        scores = self.model(encodings) * color
+        scores = self.model(encodings.float()) * color
         
         scores = scores.cpu().detach().numpy().flatten()
         n = max(int(0.25*scores.shape[0]), 1)
@@ -155,7 +155,7 @@ class StockfishEngine(ChessEngine):
 def reset_cursor():
     BEGIN = "\033[F"
     UP = "\033[A"
-    print(UP*10 + BEGIN)
+    print(UP*8 + BEGIN)
 
 
 def play_game(engine1, engine2, out, max_length=500):
@@ -163,7 +163,6 @@ def play_game(engine1, engine2, out, max_length=500):
 
     if out:
         print(board)
-        print(" ")
     for i in range(max_length):
         #print("Turn ",i)
         start = time.time()
@@ -172,8 +171,6 @@ def play_game(engine1, engine2, out, max_length=500):
         if out:
             reset_cursor()
             print(board)
-            print("white player took {}s to play".format(end - start))
-            print("")
         if board.is_game_over():
             break
         start = time.time()
@@ -182,8 +179,6 @@ def play_game(engine1, engine2, out, max_length=500):
         if out:
             reset_cursor()
             print(board)
-            print("")
-            print("black player took {}s to play".format(end - start))
         if board.is_game_over():
             break
     outcome = board.outcome()
@@ -201,22 +196,42 @@ def play_game(engine1, engine2, out, max_length=500):
 
 
 def compare_engines(n, engine1, engine2, display):
-    score1 = 0
-    score2 = 0
+    wins1_white = 0
+    wins2_white = 0
+    wins1_black = 0
+    wins2_black = 0
+
+    draws = 0
 
     for x in range(n):
         res1, res2 = play_game(engine1, engine2, display)
-        score1 += res1
-        score2 += res2
+
+        if res1 == res2:
+            draws += 1
+        else:
+            wins1_white += res1
+            wins2_black += res2
         print("Game {} finished".format(1+x))
 
     for x in range(n):
         res2, res1 = play_game(engine2, engine1, display)
-        score1 += res1
-        score2 += res2
+
+        if res1 == res2:
+            draws += 1
+        else:
+            wins1_black += res1
+            wins2_white += res2
+
         print("Game {} finished".format(1+x+n))
 
-    print("Engine 1 score = {} || Engine 2 score = {}".format(score1, score2))
+    f = open("results_vs.txt", "w")
+    print("Engine 1 wins as white = {} || Engine 1 wins as black = {} || Engine 1 total wins = {}".format(wins1_white, wins1_black,wins1_white+wins1_black ))
+    print("Number of draws = {}".format(draws ))
+    print("Engine 2 wins as white = {} || Engine 2 wins as black = {} || Engine 2 total wins = {}".format(wins2_white, wins2_black,wins2_white+wins2_black ))
+
+    f.write("Engine 1 wins as white = {} || Engine 1 wins as black = {} || Engine 1 total wins = {}\n".format(wins1_white, wins1_black,wins1_white+wins1_black ))
+    f.write("Number of draws = {}\n".format(draws ))
+    f.write("Engine 2 wins as white = {} || Engine 2 wins as black = {} || Engine 2 total wins = {}\n".format(wins2_white, wins2_black,wins2_white+wins2_black ))
 
 
 if __name__ == "__main__":
@@ -226,10 +241,13 @@ if __name__ == "__main__":
     cnn = CNN_Net()
     cnn.load_state_dict(torch.load("../saves/cnn/cnnfinal.pt"))
     cnn.eval()
-    cnn.train(False)
-    #cnn_engine = CNN_Engine(cnn.to(device), device)
-    cnn_engine_ab = CNNalphabeta_Engine(cnn.to(device), device, 4)
-    compare_engines(1,cnn_engine_ab, stock, True)
+    mlp = Net()
+    mlp.load_state_dict(torch.load("../saves/mlp/sdfinal.pt"))
+    mlp.eval()
+    cnn_engine = CNN_Engine(cnn.to(device), device)
+    mlp_engine = TorchEngine(mlp.to(device), device)
+    #cnn_engine_ab = CNNalphabeta_Engine(cnn.to(device), device, 4)
+    compare_engines(1000,cnn_engine, mlp_engine, False)
     stock.quit()
     stock2.quit()
     random_engine.quit()

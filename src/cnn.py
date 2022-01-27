@@ -24,10 +24,6 @@ class CNN_Net(nn.Module):
 
     def forward(self, x):
         board, meta = x
-
-        print(board.shape)
-        print(meta.shape)
-
         board = self.conv1(board)
         board = F.elu(board)
         board = self.conv2(board)

@@ -1,0 +1,3 @@
+Engine 1 wins as white = 148 || Engine 1 wins as black = 40 || Engine 1 total wins = 188
+Number of draws = 1445
+Engine 2 wins as white = 252 || Engine 2 wins as black = 115 || Engine 2 total wins = 367
