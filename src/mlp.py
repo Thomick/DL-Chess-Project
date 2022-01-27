@@ -81,6 +81,7 @@ def train_model(model, train_loader, val_loader, train_size, val_size, epochs=1,
             # statistics
             running_loss += loss.data.item()
         epoch_loss = running_loss/train_size
+
         print("Validation")
         val_loss = eval_model(model, val_loader, val_size)
 
@@ -88,9 +89,10 @@ def train_model(model, train_loader, val_loader, train_size, val_size, epochs=1,
         losses.append(epoch_loss)
         val_losses.append(val_loss)
         if epoch % 50 == 0:
-            save(model, losses, val_losses, epoch,
-                 additional_path=additional_path)
+            save(model, losses, val_losses, epoch, additional_path=additional_path)
     return losses, val_losses
+
+# Dataset class to adapt the loaded datasets to the model
 
 
 class FixedChessDataset(Dataset):
@@ -107,7 +109,8 @@ class FixedChessDataset(Dataset):
         return sample
 
 
-def train_once():
+if __name__ == '__main__':
+    # Hyperparameters
     batch_size = 256
     lr = 0.001
     wd = 0.001
@@ -116,74 +119,29 @@ def train_once():
         print("Please provide datasets")
         sys.exit()
 
+    # Load and append datasets
     datasets_path = sys.argv[1:]
-
     datasets = []
     for ds_path in datasets_path:
         datasets.append(torch.load(ds_path))
     final_dataset = FixedChessDataset(datasets)
-
+    print("Size of the full dataset : ", len(final_dataset))
     trainset_size = int(len(final_dataset)*0.8)
+    print("Size of the training dataset : ", trainset_size)
     valset_size = len(final_dataset)-trainset_size
+    print("Size of the validation dataset : ", valset_size)
     train_set, val_set = torch.utils.data.random_split(
         final_dataset, [trainset_size, valset_size])
 
-    print("Size of the dataset : ", len(final_dataset))
-    model = Net().to(device)
     train_loader = torch.utils.data.DataLoader(
         train_set, batch_size=batch_size, shuffle=True)
     val_loader = torch.utils.data.DataLoader(
         val_set, batch_size=batch_size, shuffle=True)
+
+    # Train model
+    model = Net().to(device)
     losses, val_losses = train_model(
         model, train_loader, val_loader, trainset_size, valset_size, epochs=1000, lr=lr, wd=wd)
+    # Save final model and training metrics
     save(model, losses, "final",
          additional_path=f"mlp/lr{int(lr*10000)}/wd{int(wd*10000)}/")
-
-
-def batch_train():
-    batch_size = 256
-
-    if len(sys.argv) < 2:
-        print("Please provide datasets")
-        sys.exit()
-
-    datasets_path = sys.argv[1:]
-
-    datasets = []
-    for ds_path in datasets_path:
-        datasets.append(torch.load(ds_path))
-    final_dataset = FixedChessDataset(datasets)
-
-    trainset_size = int(len(final_dataset)*0.8)
-    valset_size = len(final_dataset)-trainset_size
-    train_set, val_set = torch.utils.data.random_split(
-        final_dataset, [trainset_size, valset_size])
-
-    train_loader = torch.utils.data.DataLoader(
-        train_set, batch_size=batch_size, shuffle=True)
-    val_loader = torch.utils.data.DataLoader(
-        val_set, batch_size=batch_size, shuffle=True)
-
-    print("Size of the dataset : ", len(final_dataset))
-    wd = 0.001
-    for lr in [ 0.003, 0.001]:
-        print(f"Train a model with lr={lr} and wd={wd}")
-        model = Net().to(device)
-        losses, val_losses = train_model(
-            model, train_loader, val_loader, trainset_size, valset_size, epochs=1000, lr=lr, wd=wd)
-        save(model, losses, "final",
-             additional_path=f"mlp/lr{int(lr*10000)}/wd{int(wd*10000)}/")
-
-    lr = 0.001
-    for wd in [0.1, 0.01, 0.001, 0.0001]:
-        print(f"Train a model with lr={lr} and wd={wd}")
-        model = Net().to(device)
-        losses, val_losses = train_model(
-            model, train_loader, val_loader, trainset_size, valset_size, epochs=1000, lr=lr, wd=wd)
-        save(model, losses, "final",
-             additional_path=f"mlp/lr{int(lr*10000)}/wd{int(wd*10000)}/")
-
-
-if __name__ == '__main__':
-    #train_once()
-    batch_train()
