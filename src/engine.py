@@ -77,12 +77,13 @@ class CNN_Engine(ChessEngine):
         board.push(self.get_next_move(board, color))
 
 class StockfishEngine(ChessEngine):
-    def __init__(self, time):
+    def __init__(self, time, depth):
         self.engine = chess.engine.SimpleEngine.popen_uci(engine_path)
-        self.limit = chess.engine.Limit(time=time)
+        self.limit = chess.engine.Limit(time=time, depth=depth)
     
     def play(self,board, color):
-        self.engine.play(board,self.limit)
+        result = self.engine.play(board,self.limit)
+        board.push(result.move)
 
     def quit(self):
         self.engine.quit()
@@ -105,50 +106,69 @@ def board_to_game(board):
     return game
 
 def reset_cursor():
-    UP = "\033[A"
     BEGIN = "\033[F"
-    print( UP + UP + UP + UP + UP + UP + UP + UP + BEGIN )
+    UP = "\033[A"
+    print(UP*8 + BEGIN)
 
-def play_game(engine1, engine2, white_play, out, max_length = 500):
+def play_game(engine1, engine2, out, max_length = 500):
     board = chess.Board()
-    white = engine1
-    black = engine2
-    if white_play != 1:
-        white = engine2
-        black = engine1
 
     if out:
         print(board)
     for i in range(max_length):
         #print("Turn ",i)
-        white.play(board, 1)
+        engine1.play(board, 1)
         if out:
             reset_cursor()
             print(board)
-        if board.is_game_over(claim_draw = True):
+        if board.is_game_over():
             break
-        black.play(board, -1)
+        engine2.play(board, -1)
         if out:
             reset_cursor()
             print(board)
-        if board.is_game_over(claim_draw = True):
+        if board.is_game_over():
             break
     outcome = board.outcome()
     print(board_to_game(board))
+
+    print(chess.pgn.Game().from_board(board))
     if outcome == None:
-        print("Stopping the game after",max_length,"steps")
-        return 1/2,1/2
+        print("Stopping the game after", max_length, "steps")
+        return 1/2, 1/2
     print(outcome.termination)
+
     scores = outcome.result()
-    if scores == "1/2-1/2": 
-        return 1/2,1/2
-    return int(scores[1]),int(scores[2])
+    if scores == "1/2-1/2":
+        return 1/2, 1/2
+    scores = scores.split("-")
+    return int(scores[0]), int(scores[1])
+
+def compare_engines(n,engine1,engine2, display):
+    score1 = 0
+    score2 = 0
+
+    for x in range(n):
+        res1, res2 = play_game(engine1, engine2, display)
+        score1 += res1
+        score2 += res2
+        print("Game {} finished".format(1+x))
+
+    for x in range(n):
+        res2, res1 = play_game(engine2, engine1, display)
+        score1 += res1
+        score2 += res2
+        print("Game {} finished".format(1+x+n))
+
+    print("Engine 1 score = {} || Engine 2 score = {}".format(score1, score2))
+
 
 if __name__ == "__main__":
     random_engine = ChessEngine()
-    stock = StockfishEngine(time=0.5)
+    stock = StockfishEngine(time=2, depth=12)
+    stock2 = StockfishEngine(time=2, depth=11)
     cnn = CNN_Engine(CNN_Net().to(device), device)
-    scores = play_game(random_engine, stock, 1, True)
-    print(scores)
+    compare_engines(10,stock, stock2, True)
     stock.quit()
+    stock2.quit()
     random_engine.quit()
