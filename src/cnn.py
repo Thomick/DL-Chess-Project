@@ -41,7 +41,7 @@ class CNN_Net(nn.Module):
         return res
 
 
-def save(model, losses, identifier):
+def save(model, losses, val_losses, identifier):
     np.savetxt(f"../saves/cnn/eval_loss{identifier}.txt", np.array(val_losses))
     np.savetxt(f"../saves/cnn/loss{identifier}.txt", np.array(losses))
     torch.save(model.state_dict(), f"../saves/cnn/cnn{identifier}.pt")
