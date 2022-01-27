@@ -22,7 +22,7 @@ class ChessEngine:
     def __init__(self):
         pass
     
-    def play(self,board):
+    def play(self,board, color):
         board.push(random.choice(list(board.legal_moves)))
     
     def quit(self):
@@ -104,20 +104,33 @@ def board_to_game(board):
 
     return game
 
-def play_game(engine1, engine2, white, max_length = 500):
+def reset_cursor():
+    UP = "\033[A"
+    BEGIN = "\033[F"
+    print( UP + UP + UP + UP + UP + UP + UP + UP + BEGIN )
+
+def play_game(engine1, engine2, white_play, out, max_length = 500):
     board = chess.Board()
     white = engine1
     black = engine2
-    if white != 1:
+    if white_play != 1:
         white = engine2
         black = engine1
 
+    if out:
+        print(board)
     for i in range(max_length):
         #print("Turn ",i)
-        white.play(board)
+        white.play(board, 1)
+        if out:
+            reset_cursor()
+            print(board)
         if board.is_game_over(claim_draw = True):
             break
-        black.play(board)
+        black.play(board, -1)
+        if out:
+            reset_cursor()
+            print(board)
         if board.is_game_over(claim_draw = True):
             break
     outcome = board.outcome()
@@ -133,9 +146,9 @@ def play_game(engine1, engine2, white, max_length = 500):
 
 if __name__ == "__main__":
     random_engine = ChessEngine()
-    stock = StockfishEngine(time=0.1)
+    stock = StockfishEngine(time=0.5)
     cnn = CNN_Engine(CNN_Net().to(device), device)
-    scores = play_game(random_engine, stock)
+    scores = play_game(random_engine, stock, 1, True)
     print(scores)
     stock.quit()
     random_engine.quit()
