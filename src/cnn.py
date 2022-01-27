@@ -91,9 +91,9 @@ def train_model(model, train_loader, val_loader, train_size, val_size, epochs=1)
 
         print(f'Epoch {epoch} Loss: {epoch_loss} Validation: {val_loss}')
         losses.append(epoch_loss)
-        if epoch % 10 == 0:
+        if epoch % 50 == 0:
             save(model, losses, epoch)
-    return losses
+    return losses, val_losses
 
 
 def mlp_encoding_to_cnn_encoding(encoding):
