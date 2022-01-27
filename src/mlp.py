@@ -36,7 +36,7 @@ class Net(nn.Module):
 
 def save(model, losses, val_losses, identifier, additional_path=""):
     fullpath = f"../saves/{additional_path}"
-    os.makedirs(fullpath, exist_ok=False)
+    os.makedirs(fullpath, exist_ok=True)
     np.savetxt(f"{fullpath}eval_loss{identifier}.txt", np.array(val_losses))
     np.savetxt(f"{fullpath}loss{identifier}.txt", np.array(losses))
     torch.save(model.state_dict(), f"{fullpath}sd{identifier}.pt")
