@@ -1,4 +1,5 @@
 # Transform the model in a chess engine
+import time
 import chess
 import chess.pgn
 import chess.engine
@@ -7,6 +8,8 @@ import random
 import os
 from data_generator import encode_board
 import torch
+from alphabeta import alphaBetaRoot
+from alphabeta import alphaBetaRoot_mt
 import collections
 from cnn import CNN_Net
 from mlp import Net
@@ -43,13 +46,8 @@ class TorchEngine(ChessEngine):
             encodings.append(encode_board(board))
             board.pop()
 
-<<<<<<< HEAD
         encodings = torch.tensor(encodings,device = self.device)
         scores = self.model(encodings) * color
-=======
-        encodings = torch.tensor(encodings, device=self.device)
-        scores = self.model(encodings) * -1
->>>>>>> 743b195641a46de1a6d5c249c2b1e5c0bfe425e8
         chosen_move = moves[torch.argmax(scores)]
         return chosen_move
 
@@ -68,17 +66,11 @@ class CNN_Engine(ChessEngine):
         encodings = []
         for m in moves:
             board.push(m)
-<<<<<<< HEAD
             translated = mlp_encoding_to_cnn_encoding_board_only(encode_board(board))
             encodings.append(translated )
-=======
-            encodings.append(
-                mlp_encoding_to_cnn_encoding_board_only(encode_board(board)))
->>>>>>> 743b195641a46de1a6d5c249c2b1e5c0bfe425e8
             board.pop()
         
         encodings = np.array(encodings)
-<<<<<<< HEAD
         n = encodings.shape[0]
         boards = np.concatenate(encodings[:,0],axis=0).reshape(n,12,8,8)
         metas = np.concatenate(encodings[:,1],axis=0).reshape(n,6)
@@ -100,18 +92,37 @@ class CNN_Engine(ChessEngine):
             weights = weights/np.sum(weights)
             move_id = np.random.choice(possible_moves.squeeze(), p=weights)
             chosen_move = moves[move_id]
-=======
-        boards = encodings[0]
-        metas = encodings[0]
-        boards = torch.tensor(boards, device=self.device)
-        metas = torch.tensor(metas, device=self.device)
-        scores = self.model((boards.float(), metas.float())) * -1
-        chosen_move = moves[torch.argmax(scores)]
->>>>>>> 743b195641a46de1a6d5c249c2b1e5c0bfe425e8
         return chosen_move
 
     def play(self, board, color):
         board.push(self.get_next_move(board, color))
+
+class CNNalphabeta_Engine(ChessEngine):
+    def __init__(self, model, device, depth):
+        self.model = model
+        self.device = device
+        self.depth = depth
+
+    # color = -1 when black, and = 1 when white
+    def evaluate(self, board):
+        translated = mlp_encoding_to_cnn_encoding_board_only(encode_board(board))
+        n = translated.shape[0]
+        board = translated[0]
+        meta = translated[1]
+
+        board = torch.tensor(board,device = self.device)
+        board = torch.unsqueeze(board, dim=0)
+
+        meta = torch.tensor(meta,device = self.device)
+        meta = torch.unsqueeze(meta, dim=0)
+
+        score = self.model((board.float(),meta.float()))
+
+        return score.cpu().detach().numpy()[0,0]
+
+    def play(self, board, color):
+        move = alphaBetaRoot(board,self.evaluate, color, self.depth)
+        board.push(move)
 
 
 class StockfishEngine(ChessEngine):
@@ -130,7 +141,7 @@ class StockfishEngine(ChessEngine):
 def reset_cursor():
     BEGIN = "\033[F"
     UP = "\033[A"
-    print(UP*8 + BEGIN)
+    print(UP*10 + BEGIN)
 
 
 def play_game(engine1, engine2, out, max_length=500):
@@ -138,26 +149,30 @@ def play_game(engine1, engine2, out, max_length=500):
 
     if out:
         print(board)
+        print(" ")
     for i in range(max_length):
         #print("Turn ",i)
+        start = time.time()
         engine1.play(board, 1)
+        end = time.time()
         if out:
             reset_cursor()
             print(board)
+            print("white player took {}s to play".format(end - start))
+            print("")
         if board.is_game_over():
             break
+        start = time.time()
         engine2.play(board, -1)
+        end = time.time()
         if out:
             reset_cursor()
             print(board)
+            print("")
+            print("black player took {}s to play".format(end - start))
         if board.is_game_over():
             break
     outcome = board.outcome()
-<<<<<<< HEAD
-=======
-    print(chess.pgn.Game().from_board(board))
-
->>>>>>> 743b195641a46de1a6d5c249c2b1e5c0bfe425e8
     print(chess.pgn.Game().from_board(board))
     if outcome == None:
         print("Stopping the game after", max_length, "steps")
@@ -198,7 +213,8 @@ if __name__ == "__main__":
     cnn.load_state_dict(torch.load("../saves/cnn/cnnfinal.pt"))
     cnn.eval()
     cnn_engine = CNN_Engine(cnn.to(device), device)
-    compare_engines(100,stock, cnn_engine, True)
+    #cnn_engine_ab = CNNalphabeta_Engine(cnn.to(device), device, 2)
+    compare_engines(1,cnn_engine, stock, True)
     stock.quit()
     stock2.quit()
     random_engine.quit()

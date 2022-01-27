@@ -17,10 +17,10 @@ class CNN_Net(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.conv1 = nn.Conv2d(12,20,5)
-        self.conv2 = nn.Conv2d(20,50,3)
-        self.fc1 = nn.Linear(206,512)
-        self.fc2 = nn.Linear(512,1)
+        self.conv1 = nn.Conv2d(12,128,5)
+        self.conv2 = nn.Conv2d(128,256,3)
+        self.fc1 = nn.Linear(1030,2048)
+        self.fc2 = nn.Linear(2048,1)
 
     def forward(self, x):
         board, meta = x
@@ -170,7 +170,7 @@ if __name__ == '__main__':
 
     cnn_dataset = CNNChessDataset(final_dataset)
 
-    trainset_size = int(len(cnn_dataset)*0.8)
+    trainset_size = int(len(cnn_dataset)*0.95)
     valset_size = len(cnn_dataset)-trainset_size
     train_set, val_set = torch.utils.data.random_split(
         cnn_dataset, [trainset_size, valset_size])
