@@ -48,7 +48,21 @@ class TorchEngine(ChessEngine):
 
         encodings = torch.tensor(encodings,device = self.device)
         scores = self.model(encodings) * color
-        chosen_move = moves[torch.argmax(scores)]
+        
+        scores = scores.cpu().detach().numpy().flatten()
+        n = max(int(0.25*scores.shape[0]), 1)
+        #print(scores)
+        #print(scores.shape)
+        possible_moves = np.argpartition(scores, -n)[-n:]
+        #print(possible_moves)
+        #print(possible_moves.shape)
+        chosen_move = moves[0]
+        if possible_moves.shape[0] != 1:
+            weights = scores[possible_moves]
+            weights = weights - min(weights)
+            weights = weights/np.sum(weights)
+            move_id = np.random.choice(possible_moves.squeeze(), p=weights)
+            chosen_move = moves[move_id]
         return chosen_move
 
     def play(self, board, color):
