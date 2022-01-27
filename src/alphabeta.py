@@ -10,6 +10,8 @@ from torch.multiprocessing import Pool, Process, set_start_method
 
 def alphaBetaMax(board,alpha, beta, depth_left,eval_f,color):
     if depth_left == 0:
+        if board.is_checkmate():
+            return 50000
         return  eval_f(board)*color
 
     possibleMoves = board.legal_moves
@@ -30,6 +32,8 @@ def alphaBetaMax(board,alpha, beta, depth_left,eval_f,color):
     
 def alphaBetaMin(board,alpha, beta, depth_left,eval_f,color):
     if depth_left == 0:
+        if board.is_checkmate():
+            return -50000
         return  eval_f(board)*color
 
     possibleMoves = board.legal_moves
