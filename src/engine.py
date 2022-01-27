@@ -61,7 +61,7 @@ class CNN_Engine(ChessEngine):
         encodings = []
         for m in moves:
             board.push(m)
-            encodings.append( mlp_encoding_to_cnn_encoding_board_only(encode_board(board))
+            encodings.append( mlp_encoding_to_cnn_encoding_board_only(encode_board(board)))
             board.pop()
 
         encodings = np.array(encodings)
